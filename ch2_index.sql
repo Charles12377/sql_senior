@@ -34,52 +34,100 @@ EXPLAIN:
     select_type：该查询块的类型
     table：显示这一行的数据属于哪一张表的
     type：单表的读取方式（system>const>eq_ref>ref>range>index>ALL）
+        sysetem:表只有一行记录（相当于系统表）
+        const：表示使用索引一次就找到了
+        eq_ref:唯一性索引扫描，对于每个索引键，表中只有一条记录与之匹配。
+        ref:非唯一性索引扫描，返回匹配某个单独值得所有行
+        range：只检索给定范围的行，使用一个索引来选择行
+        index：遍历索引树（全索引扫描）
+        all:全表扫描
+    possible_keys:可能应用于这张表中的索引，一个或多个，不一定被实际使用
+    key：实际使用的索引（若查询中使用了覆盖索引，则该索引仅出现在key列表中
+
+
 
 */
-EXPLAIN SELECT *
-FROM customers,orderitems,orders;
+SELECT @@optimizer_switch\G
 
-EXPLAIN SELECT customers.*
+#关闭优化器
+SET SESSION optimizer_switch = 'derived_merge=off,semijoin=off,materialization=off';
+SET SESSION optimizer_prune_level = 0;
+SET SESSION optimizer_search_depth = 62;
+
+#select_type （IN 子查询）
+EXPLAIN SELECT cust_name
 FROM customers
-WHERE cust_id IN (
+WHERE cust_id IN(
     SELECT cust_id
     FROM orders
-    WHERE order_num IN (
+    WHERE order_num IN(
         SELECT order_num
         FROM orderitems
+        WHERE prod_id = 'TNT2'
     )
-);
+)
 
-#MySQL优化器会自动优化查询逻辑
-EXPLAIN SELECT customers.*
-FROM customers
-WHERE cust_id NOT IN (
-    SELECT cust_id
-    FROM orders
-    WHERE order_num NOT IN (
-        SELECT order_num
-        FROM orderitems
-    )
-);
+#全表扫描 ALL（没有索引命中）
+EXPLAIN SELECT * 
+FROM customers 
+WHERE cust_city = 'Detroit';
 
+#const 单次索引查询
+EXPLAIN SELECT * 
+FROM customers 
+WHERE cust_id = 10001;
+
+# eq_ref 等值主键查询
+#内联结
 EXPLAIN SELECT *
-FROM (
-    SELECT order_num
-    FROM orderitems
-) AS t_1,orders,customers
-WHERE t_1.order_num = orders.order_num
-    AND orders.cust_id = customers.cust_id;
+FROM customers
+JOIN orders ON customers.cust_id = orders.cust_id;
+#三表关联
+EXPLAIN SELECT *
+FROM customers
+JOIN orders ON customers.cust_id = orders.cust_id
+JOIN orderitems ON orders.order_num = orderitems.order_num;
+#强制按书写顺序驱动
+EXPLAIN SELECT *
+FROM customers
+STRAIGHT_JOIN orders ON customers.cust_id = orders.cust_id
+STRAIGHT_JOIN orderitems ON orders.order_num = orderitems.order_num;
 
-EXPLAIN SELECT * FROM(
-    SELECT cust_name,cust_email,order_num
-    FROM customers
-    LEFT JOIN orders ON customers.cust_id = orders.cust_id
-        AND order_date <= '2005-09-30'
-    UNION
-    SELECT cust_name,cust_email,order_num
-    FROM customers
-    RIGHT JOIN orders ON customers.cust_id = orders.cust_id
-        AND order_date <= '2005-09-30'
-    WHERE customers.cust_id IS NULL OR orders.cust_id IS NULL
-) AS cust_order
-WHERE cust_order.cust_name IS NULL OR cust_order.order_num IS NULL;
+#ref 普通索引查询
+EXPLAIN SELECT *
+FROM products
+WHERE vend_id = 1001;
+
+#range 范围查询（主键范围）
+EXPLAIN SELECT * 
+FROM orders 
+WHERE order_num 
+BETWEEN 20005 AND 20008;
+
+#index 遍历索引树查询
+EXPLAIN SELECT cust_id
+FROM customers;
+
+#key,possible_key
+#没用索引
+EXPLAIN SELECT *
+FROM customers;
+#主键索引
+EXPLAIN SELECT *
+FROM customers
+WHERE cust_id = 10001;
+#可能用到索引但实际不使用
+EXPLAIN SELECT *
+FROM orders
+WHERE order_num > 20009;
+#可能使用多个索引但实际只使用一个
+EXPLAIN SELECT orders.*
+FROM customers,orders,orderitems
+WHERE customers.cust_id = orders.cust_id
+    AND orders.order_num = orderitems.order_num;
+#可能不使用索引但实际使用了
+EXPLAIN SELECT vend_id FROM products;
+
+
+#练习filesort，Extra出现 Using filesort
+EXPLAIN SELECT * FROM products ORDER BY prod_name;

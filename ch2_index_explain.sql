@@ -43,7 +43,14 @@ EXPLAIN:
         all:全表扫描
     possible_keys:可能应用于这张表中的索引，一个或多个，不一定被实际使用
     key：实际使用的索引（若查询中使用了覆盖索引，则该索引仅出现在key列表中
-
+    key_len:索引字段的最大可能长度，并非实际使用长度，在不损失精确性的前提下，长度越短越好
+    ref：显示索引那一列被使用了，如果可能的话，是一个常数，哪些列或常量被用于查找索引列上的值
+    rows；根据表统计信息及索引选用情况，大致估算出找到所需的纪录所需要读取的行数
+    extra：包含不适合在其他列中显示但十分重要的信息
+        using filesort：说明MySQL对数据使用一个外部的索引排序，而不是按照表内的索引顺序进行读取
+        using temporary:使用临时表存储中间结果，MySQL在对查询结果排序时使用临时表
+        using index：表示相应的select操作使用了覆盖索引，避免访问了表的数据行，效率不错
+        
 
 
 */
@@ -130,4 +137,15 @@ EXPLAIN SELECT vend_id FROM products;
 
 
 #练习filesort，Extra出现 Using filesort
-EXPLAIN SELECT * FROM products ORDER BY prod_name;
+EXPLAIN SELECT * FROM products 
+ORDER BY prod_name;
+EXPLAIN SELECT * FROM products 
+ORDER BY prod_id;
+
+# temporary
+EXPLAIN SELECT cust_id,SUM(cust_id)
+FROM customers
+GROUP BY cust_id;
+EXPLAIN SELECT cust_state,SUM(cust_state)
+FROM customers
+GROUP BY cust_state;

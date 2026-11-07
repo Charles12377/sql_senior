@@ -1,4 +1,9 @@
-*.pdf
+# 编辑器缓存、系统垃圾
 .DS_Store
+Thumbs.db
+*.log
+*.tmp
+.vscode/
+.idea/
 .venv/
 __pycache__/

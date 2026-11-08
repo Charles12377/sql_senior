@@ -80,6 +80,7 @@ WHERE order_num = 20005
     AND item_price = 5.99
     AND quantity = 10;
 
+#在使用!=,>,<时无法使用索引会导致全表扫描
 EXPLAIN
 SELECT order_num,item_price,quantity
 FROM orderitems
@@ -92,3 +93,50 @@ SELECT order_num
 FROM orderitems
 WHERE order_num = 20005
     AND item_price = 5.99;
+
+#IS NULL,IS NOT NULL无法使用索引
+EXPLAIN
+SELECT *
+FROM customers
+WHERE cust_address IS NULL;
+
+#like句子以通配符开头会全表扫描
+EXPLAIN
+SELECT *
+FROM orderitems
+WHERE item_price LIKE '%9';
+
+EXPLAIN
+SELECT *
+FROM orderitems
+WHERE item_price LIKE '9%';
+
+#可以使用覆盖索引避免全表扫描
+EXPLAIN
+SELECT order_num
+FROM orderitems
+WHERE item_price LIKE '%9';
+
+#字符串不加单引号索引失效
+ALTER TABLE customers
+ADD INDEX CZ (cust_zip);
+EXPLAIN
+SELECT *
+FROM customers
+WHERE cust_zip = '44444';
+
+EXPLAIN
+SELECT *
+FROM customers
+WHERE cust_zip = 44444;
+
+#少用or，用它连接会导致索引失效
+EXPLAIN
+SELECT cust_name,cust_zip
+FROM customers
+WHERE cust_zip = '44444';
+
+EXPLAIN
+SELECT cust_name,cust_zip
+FROM customers
+WHERE cust_zip = '44444' OR cust_name = 'Wascals';

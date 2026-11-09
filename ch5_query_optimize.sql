@@ -1,3 +1,4 @@
+-- Active: 1793507254360@@127.0.0.1@3307@crashcourse
 #小表驱动大表
 #左表大于右表用IN
 SELECT *
@@ -111,3 +112,5 @@ SELECT order_num,item_price
 FROM orderitems
 WHERE item_price = 10
 ORDER BY quantity;
+
+#GROUP BY优化大致与order by一致
